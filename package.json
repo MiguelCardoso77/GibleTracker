@@ -1,10 +1,9 @@
 {
-  "name": "${PROJECT_NAME}",
+  "name": "gible-tracker",
+  "private": true,
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "main": "src/index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "private": true
+    "start": "node src/index.js"
+  }
 }
