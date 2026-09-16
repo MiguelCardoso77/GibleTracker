@@ -1,26 +1,63 @@
+interface PokemonEntry {
+  pokemon_id: number;
+  form: string;
+  form_name: string;
+  species_name: string;
+  icon_url: string;
+  latitude: number;
+  longitude: number;
+  [key: string]: unknown;
+}
+
+interface RenderableEntry extends PokemonEntry {
+  _id: number;
+  distanceKm: number | null;
+}
+
+interface PayloadStateEntry {
+  id: string;
+  value: unknown;
+}
+
+interface PayloadInputEntry {
+  id: string;
+  value: unknown;
+}
+
+interface DashPayload {
+  state: PayloadStateEntry[];
+  inputs: PayloadInputEntry[];
+  [key: string]: unknown;
+}
+
+interface UserPosition {
+  latitude: number;
+  longitude: number;
+}
+
 const TARGET_URL = '/api/proxy';
 const MAX_TILES = 500;
 
 const state = {
   lvLo: 1, lvHi: 35,
   posting: false,
-  selectedId: null,
+  selectedId: null as number | null,
   copied: false,
-  entries: [],       // last response, each with an added _id and distanceKm
-  userPosition: null,
-  iv100Keys: new Set()  // "pokemon_id:form" keys from the live grouped table's iv100 bucket
+  entries: [] as RenderableEntry[],       // last response, each with an added _id and distanceKm
+  userPosition: null as UserPosition | null,
+  iv100Keys: new Set<string>()  // "pokemon_id:form" keys from the live grouped table's iv100 bucket
 };
 
-function iv100Key(entry) {
+function iv100Key(entry: PokemonEntry): string {
   return `${entry.pokemon_id}:${entry.form}`;
 }
 
-async function loadPayload() {
+async function loadPayload(): Promise<DashPayload> {
   const res = await fetch('payload.json');
   return res.json();
 }
 
-function todayString() {
+function todayString(): string {
   const now = new Date();
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, '0');
@@ -28,7 +65,7 @@ function todayString() {
   return `${year}-${month}-${day}`;
 }
 
-function getCurrentPosition() {
+function getCurrentPosition(): Promise<UserPosition> {
   return new Promise((resolve, reject) => {
     if (!navigator.geolocation) {
       reject(new Error('Geolocation is not supported by this browser'));
@@ -41,8 +78,8 @@ function getCurrentPosition() {
   });
 }
 
-function distanceKm(lat1, lon1, lat2, lon2) {
-  const toRad = deg => (deg * Math.PI) / 180;
+function distanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
   const R = 6371;
   const dLat = toRad(lat2 - lat1);
   const dLon = toRad(lon2 - lon1);
@@ -52,13 +89,13 @@ function distanceKm(lat1, lon1, lat2, lon2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-function fmtDist(km) {
+function fmtDist(km: number | null | undefined): string {
   if (km == null) return '—';
   return km < 1 ? Math.round(km * 1000) + ' m' : km.toFixed(1) + ' km';
 }
 
-function applyPayloadOverrides(payload) {
-  const area = document.getElementById('area-selector').value;
+function applyPayloadOverrides(payload: DashPayload): DashPayload {
+  const area = (document.getElementById('area-selector') as HTMLSelectElement).value;
   const today = todayString();
 
   for (const entry of payload.state) {
@@ -73,8 +110,8 @@ function applyPayloadOverrides(payload) {
 
 // same callback, different source/mode: live data grouped by pokemon+form,
 // used only to pull the iv100 bucket for highlighting
-function buildLiveGroupedPayload(payload) {
-  const grouped = JSON.parse(JSON.stringify(payload));
+function buildLiveGroupedPayload(payload: DashPayload): DashPayload {
+  const grouped: DashPayload = JSON.parse(JSON.stringify(payload));
 
   for (const input of grouped.inputs) {
     if (input.id === 'combined-source-store') input.value = 'live';
@@ -88,13 +125,16 @@ function buildLiveGroupedPayload(payload) {
 
 // ---- range sliders (IV / Level) ----
 
-function setupRangePair(minId, maxId, labelId, fillId, stateLoKey, stateHiKey, min, max, suffix) {
-  const minInput = document.getElementById(minId);
-  const maxInput = document.getElementById(maxId);
-  const label = document.getElementById(labelId);
-  const fill = document.getElementById(fillId);
+function setupRangePair(
+  minId: string, maxId: string, labelId: string, fillId: string,
+  stateLoKey: 'lvLo', stateHiKey: 'lvHi', min: number, max: number, suffix: string
+): void {
+  const minInput = document.getElementById(minId) as HTMLInputElement;
+  const maxInput = document.getElementById(maxId) as HTMLInputElement;
+  const label = document.getElementById(labelId) as HTMLElement;
+  const fill = document.getElementById(fillId) as HTMLElement;
 
-  function update() {
+  function update(): void {
     let lo = Number(minInput.value);
     let hi = Number(maxInput.value);
     if (lo > hi) {
@@ -122,20 +162,20 @@ setupRangePair('level-min', 'level-max', 'level-range-label', 'level-range-fill'
 
 // ---- selection ----
 
-function selectEntry(id) {
+function selectEntry(id: number): void {
   state.selectedId = id;
   state.copied = false;
   render();
 }
 
-function clearSelection() {
+function clearSelection(): void {
   state.selectedId = null;
   render();
 }
 
-document.getElementById('detail-close-btn').addEventListener('click', clearSelection);
+document.getElementById('detail-close-btn')!.addEventListener('click', clearSelection);
 
-document.getElementById('copy-coords-btn').addEventListener('click', () => {
+document.getElementById('copy-coords-btn')!.addEventListener('click', () => {
   const entry = state.entries.find(e => e._id === state.selectedId);
   if (!entry) return;
   const coords = `${entry.latitude.toFixed(6)},${entry.longitude.toFixed(6)}`;
@@ -157,19 +197,19 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 }).addTo(map);
 
 const markersLayer = L.layerGroup().addTo(map);
-let userMarker = null;
+let userMarker: L.Marker | null = null;
 let mapNeedsFit = false;
 
 window.addEventListener('resize', () => map.invalidateSize());
 map.on('zoomend', () => renderMap(visibleEntries()));
 
 // sprite size shrinks as you zoom out, grows as you zoom in
-function spriteSizeForZoom(zoom) {
+function spriteSizeForZoom(zoom: number): number {
   const size = 14 * Math.pow(1.28, zoom - 13);
   return Math.round(Math.max(8, Math.min(28, size)));
 }
 
-function renderMap(entries) {
+function renderMap(entries: RenderableEntry[]): void {
   markersLayer.clearLayers();
 
   const baseSize = spriteSizeForZoom(map.getZoom());
@@ -206,7 +246,7 @@ function renderMap(entries) {
   }
 
   if (mapNeedsFit && entries.length > 0) {
-    const points = entries.map(e => [e.latitude, e.longitude]);
+    const points: L.LatLngExpression[] = entries.map(e => [e.latitude, e.longitude]);
     if (state.userPosition) points.push([state.userPosition.latitude, state.userPosition.longitude]);
     map.fitBounds(L.latLngBounds(points), { padding: [24, 24], maxZoom: 16 });
     mapNeedsFit = false;
@@ -215,28 +255,28 @@ function renderMap(entries) {
 
 // ---- rendering ----
 
-function visibleEntries() {
+function visibleEntries(): RenderableEntry[] {
   const sorted = [...state.entries];
   sorted.sort((a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity));
   return sorted;
 }
 
-function render() {
+function render(): void {
   const entries = visibleEntries();
 
   // map
-  document.getElementById('map-empty-overlay').hidden = state.entries.length > 0;
+  (document.getElementById('map-empty-overlay') as HTMLElement).hidden = state.entries.length > 0;
   renderMap(entries);
 
   // results header
   const shownCount = Math.min(entries.length, MAX_TILES);
-  document.getElementById('results-count-label').textContent =
+  document.getElementById('results-count-label')!.textContent =
     entries.length > MAX_TILES
       ? `${state.entries.length} Pokémon (showing ${shownCount})`
       : `${state.entries.length} Pokémon`;
 
   // results grid (capped to MAX_TILES so huge responses don't freeze the page)
-  const grid = document.getElementById('results-grid');
+  const grid = document.getElementById('results-grid')!;
   grid.innerHTML = '';
   for (const entry of entries.slice(0, MAX_TILES)) {
     const tile = document.createElement('button');
@@ -260,25 +300,25 @@ function render() {
   }
 
   // detail panel
-  const detailPanel = document.getElementById('detail-panel');
+  const detailPanel = document.getElementById('detail-panel') as HTMLElement;
   const selected = state.entries.find(e => e._id === state.selectedId);
   detailPanel.hidden = !selected;
   if (selected) {
-    document.getElementById('detail-sprite').src = selected.icon_url;
-    document.getElementById('detail-name').textContent = selected.species_name;
-    document.getElementById('detail-form-pill').textContent = selected.form_name;
-    document.getElementById('detail-panel').classList.toggle('iv100-match', state.iv100Keys.has(iv100Key(selected)));
-    document.getElementById('detail-meta-line').textContent =
+    (document.getElementById('detail-sprite') as HTMLImageElement).src = selected.icon_url;
+    document.getElementById('detail-name')!.textContent = selected.species_name;
+    document.getElementById('detail-form-pill')!.textContent = selected.form_name;
+    document.getElementById('detail-panel')!.classList.toggle('iv100-match', state.iv100Keys.has(iv100Key(selected)));
+    document.getElementById('detail-meta-line')!.textContent =
       `#${String(selected.pokemon_id).padStart(3, '0')} · ${fmtDist(selected.distanceKm)} away`;
-    document.getElementById('detail-coords-value').textContent =
+    document.getElementById('detail-coords-value')!.textContent =
       `${selected.latitude.toFixed(5)}, ${selected.longitude.toFixed(5)}`;
-    document.getElementById('copy-coords-btn').textContent = state.copied ? 'copied ✓' : 'copy coordinates';
+    document.getElementById('copy-coords-btn')!.textContent = state.copied ? 'copied ✓' : 'copy coordinates';
   }
 }
 
 // ---- send POST ----
 
-const sendBtn = document.getElementById('send-btn');
+const sendBtn = document.getElementById('send-btn') as HTMLButtonElement;
 
 sendBtn.addEventListener('click', async () => {
   state.posting = true;
@@ -307,7 +347,7 @@ sendBtn.addEventListener('click', async () => {
 
     const text = await res.text();
 
-    let entries = [];
+    let entries: PokemonEntry[] = [];
     try {
       const parsed = JSON.parse(text);
       const rawEntries = parsed?.response?.['heatmap-data-store']?.data;

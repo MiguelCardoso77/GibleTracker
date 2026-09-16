@@ -1,9 +1,17 @@
 {
   "name": "gible-tracker",
   "private": true,
-  "version": "1.0.0",
-  "main": "src/index.js",
+  "version": "1.0.1",
+  "main": "src/index.ts",
   "scripts": {
-    "start": "node src/index.js"
+    "start": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/leaflet": "1.9.22",
+    "@types/node": "22.20.3",
+    "esbuild": "0.28.2",
+    "tsx": "4.23.13",
+    "typescript": "7.0.2"
   }
 }
