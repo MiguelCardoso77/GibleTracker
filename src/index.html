@@ -67,9 +67,11 @@
   #wordmark { font-family: var(--font-heading); font-weight: 500; font-size: 15px; letter-spacing: -0.01em; }
   #header-spacer { flex: 1; }
   #pogo-hub-link {
+    display: inline-flex; align-items: center; gap: var(--space-2);
     font-size: 11px; color: var(--color-neutral-400); text-decoration: none; transition: color .15s ease;
   }
   #pogo-hub-link:hover { color: var(--color-accent-300); }
+  #pogo-hub-logo { width: 28px; height: 28px; object-fit: contain; }
   #body-grid { display: grid; grid-template-columns: minmax(0, 1fr) 372px; min-height: 0; }
 
   #main-column { min-width: 0; min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
@@ -164,7 +166,7 @@
   #detail-panel { margin: 0 var(--space-6) var(--space-6); padding: var(--space-6); border-radius: var(--radius-md); background: var(--color-surface); box-shadow: var(--shadow-sm); }
   #detail-panel.iv100-match { border: 1px solid #e0b84c; }
   #detail-top-row { display: flex; align-items: flex-start; gap: var(--space-4); }
-  #detail-sprite { flex: none; width: 52px; height: 52px; }
+  #detail-sprite { flex: none; width: 52px; height: 52px; aspect-ratio: 1 / 1; object-fit: contain; }
   #detail-name-row { display: flex; align-items: center; gap: var(--space-2); }
   #detail-name { font-family: var(--font-heading); font-size: 16px; font-weight: 500; }
   #detail-form-pill { font-size: 10px; padding: 2px 6px; border-radius: 99px; border: 1px solid var(--color-accent-700); color: var(--color-accent-300); }
@@ -185,6 +187,13 @@
   #copy-coords-btn:hover { border-color: var(--color-accent-700); color: var(--color-accent-200); }
 
   [hidden] { display: none !important; }
+
+  @media (max-width: 720px) {
+    #app-shell { height: auto; min-height: 100vh; }
+    #body-grid { display: block; }
+    #main-column { display: none; }
+    aside#sidebar { border-left: none; }
+  }
 </style>
 </head>
 <body>
@@ -194,7 +203,10 @@
     <img id="brand-mark" src="assets/Gible.png" alt="GibleTracker">
     <span id="wordmark">GibleTracker</span>
     <div id="header-spacer"></div>
-    <a id="pogo-hub-link" class="mono" href="https://db.pokemongohub.net/" target="_blank" rel="noopener">Pokémon GO Hub</a>
+    <a id="pogo-hub-link" class="mono" href="https://db.pokemongohub.net/" target="_blank" rel="noopener">
+      <img id="pogo-hub-logo" src="https://db.pokemongohub.net/go-hub-logo-minimal.svg" alt="">
+      Pokémon Rankings
+    </a>
   </header>
 
   <div id="body-grid">
@@ -307,7 +319,7 @@
   </div>
 
   <footer>
-    <a id="github-link" href="https://github.com/MiguelCardoso77" target="_blank" rel="noopener">GitHub</a>
+    <a id="github-link" href="https://github.com/MiguelCardoso77/GibleTracker" target="_blank" rel="noopener">GitHub</a>
   </footer>
 </div>
 

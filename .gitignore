@@ -5,4 +5,4 @@ node_modules/
 src/assets/pokemon/
 
 # IDE FILES
-./idea/
+.idea/

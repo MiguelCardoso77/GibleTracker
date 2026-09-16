@@ -128,5 +128,5 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`GibleTracker a correr em http://localhost:${PORT}`);
+  console.log(`GibleTracker running at http://localhost:${PORT}`);
 });
