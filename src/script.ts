@@ -45,11 +45,42 @@ const state = {
   copied: false,
   entries: [] as RenderableEntry[],       // last response, each with an added _id and distanceKm
   userPosition: null as UserPosition | null,
-  iv100Keys: new Set<string>()  // "pokemon_id:form" keys from the live grouped table's iv100 bucket
+  iv100Keys: new Set<string>(),      // "pokemon_id:form" keys from the live grouped table's iv100 bucket
+  prevSpawnKeys: new Set<string>(),  // spawn keys from the previous response, to detect new spawns
+  likelySpawnKeys: new Set<string>() // spawn keys currently flagged as the likely 100% IV spawn
 };
 
 function iv100Key(entry: PokemonEntry): string {
   return `${entry.pokemon_id}:${entry.form}`;
+}
+
+// a spawn is a fixed point, so species+form+coords identifies it across requests
+function spawnKey(entry: PokemonEntry): string {
+  return `${iv100Key(entry)}:${entry.latitude.toFixed(6)}:${entry.longitude.toFixed(6)}`;
+}
+
+// the live grouped table only says *which species* has a 100% IV spawn alive, not where.
+// to pick the right one among several spawns of that species seen today, diff against the
+// previous response: a spawn that wasn't there before is the one that just appeared.
+function computeLikelySpawnKeys(entries: PokemonEntry[]): Set<string> {
+  const bySpecies = new Map<string, PokemonEntry[]>();
+  for (const entry of entries) {
+    const key = iv100Key(entry);
+    if (!state.iv100Keys.has(key)) continue;
+    const list = bySpecies.get(key);
+    if (list) list.push(entry); else bySpecies.set(key, [entry]);
+  }
+
+  const likely = new Set<string>();
+  for (const candidates of bySpecies.values()) {
+    const fresh = candidates.filter(e => !state.prevSpawnKeys.has(spawnKey(e)));
+    const kept = candidates.filter(e => state.likelySpawnKeys.has(spawnKey(e)));
+    // new spawn(s) of this species -> those; otherwise keep what was already flagged;
+    // otherwise there's no history to disambiguate, so flag them all
+    const chosen = fresh.length > 0 ? fresh : kept.length > 0 ? kept : candidates;
+    for (const e of chosen) likely.add(spawnKey(e));
+  }
+  return likely;
 }
 
 async function loadPayload(): Promise<DashPayload> {
@@ -215,7 +246,7 @@ function renderMap(entries: RenderableEntry[]): void {
   const baseSize = spriteSizeForZoom(map.getZoom());
 
   for (const entry of entries) {
-    const isMatch = state.iv100Keys.has(iv100Key(entry));
+    const isMatch = state.likelySpawnKeys.has(spawnKey(entry));
     const isSelected = entry._id === state.selectedId;
     const size = isSelected ? Math.round(baseSize * 1.4) : baseSize;
 
@@ -283,7 +314,7 @@ function render(): void {
     tile.className = 'result-tile';
     tile.title = `${entry.species_name} (${entry.form_name}) · #${entry.pokemon_id}`;
     if (entry._id === state.selectedId) tile.classList.add('selected');
-    if (state.iv100Keys.has(iv100Key(entry))) tile.classList.add('iv100-match');
+    if (state.likelySpawnKeys.has(spawnKey(entry))) tile.classList.add('iv100-match');
     tile.addEventListener('click', () => selectEntry(entry._id));
 
     const img = document.createElement('img');
@@ -307,7 +338,7 @@ function render(): void {
     (document.getElementById('detail-sprite') as HTMLImageElement).src = selected.icon_url;
     document.getElementById('detail-name')!.textContent = selected.species_name;
     document.getElementById('detail-form-pill')!.textContent = selected.form_name;
-    document.getElementById('detail-panel')!.classList.toggle('iv100-match', state.iv100Keys.has(iv100Key(selected)));
+    document.getElementById('detail-panel')!.classList.toggle('iv100-match', state.likelySpawnKeys.has(spawnKey(selected)));
     document.getElementById('detail-meta-line')!.textContent =
       `#${String(selected.pokemon_id).padStart(3, '0')} · ${fmtDist(selected.distanceKm)} away`;
     document.getElementById('detail-coords-value')!.textContent =
@@ -367,6 +398,9 @@ sendBtn.addEventListener('click', async () => {
       }
     }
 
+    state.likelySpawnKeys = computeLikelySpawnKeys(entries);
+    state.prevSpawnKeys = new Set(entries.map(spawnKey));
+
     state.entries = entries.map((entry, index) => ({
       ...entry,
       _id: index,
@@ -378,6 +412,7 @@ sendBtn.addEventListener('click', async () => {
   } catch (err) {
     state.entries = [];
     state.iv100Keys = new Set();
+    state.likelySpawnKeys = new Set();
   } finally {
     state.posting = false;
     sendBtn.disabled = false;

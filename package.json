@@ -1,7 +1,7 @@
 {
   "name": "gible-tracker",
   "private": true,
-  "version": "1.0.2",
+  "version": "1.0.3",
   "main": "src/index.ts",
   "scripts": {
     "start": "tsx src/index.ts",
